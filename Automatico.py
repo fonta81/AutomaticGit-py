@@ -28,11 +28,12 @@ class AutomaticGit:
         print("Se creo un repositorio correctamente")
 
     def commit(self):
-        subprocess.run(["git", "add", "."], capture_output=True)
+        subprocess.run(["git", "add", "-A"], capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", self.today, "-m", "this commit is automatic"],
             capture_output=True,
         )
+        print("Se hizo el commit correctamente")
 
 
 def main():  # El menu principal
