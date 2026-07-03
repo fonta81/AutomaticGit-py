@@ -1,6 +1,3 @@
-# nesesito un programa que solo con abrirlo detecte si hay una carpeta .git
-# si la hay -> haga un commit
-# si no, que la cree y lo haga
 import os
 import subprocess
 import datetime
@@ -11,13 +8,21 @@ today = now.strftime("%Y / %m / %d")
 
 class AutomaticGit:
     def __init__(self):
-        self.PathBasic = os.path.join("")
+        self.PathBasic = os.getcwd()
+        self.PathGit = os.path.join(self.PathBasic, ".git")
 
-    def Exist(self, PathOfGit):
-        pass
+    def Exist(self):
+        if os.path.exists(self.PathGit):
+            print("si we")
+        else:
+            print("no we")
 
     def MakeGit(self):
         pass
 
     def commit(self, today):
         pass
+
+
+aa = AutomaticGit()
+aa.Exist()
