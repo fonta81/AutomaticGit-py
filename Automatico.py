@@ -1,59 +1,142 @@
-# importar librerias
+import datetime
 import os
 import subprocess
-import datetime
 
 
 class AutomaticGit:
     def __init__(self):
-        self.PathBasic = os.getcwd()  # path donde se ejecuta el py
-        self.PathGit = os.path.join(self.PathBasic, ".git")  # el path del git
-        self.now = datetime.datetime.now()  # el dia de hoy
-        self.today = self.now.strftime("%Y / %m / %d")  # el dia de hoy
+        self.path_basic = os.getcwd()
+        self.today = datetime.datetime.now().strftime("%Y / %m / %d")
 
-    def Exist(self):  # si existe un repo
-        if os.path.exists(self.PathGit):  # si existe:
-            self.commit()  # hace commit
-        else:  # si no existe: crea uno
-            Repo = input("no hay repositorio, desea crear uno?\n1.si\n2.no\nElige: ")
-            if Repo == "1":
-                self.MakeGit()  # crea un repo
-                self.commit()  # hace commit
-            elif Repo == "2":
-                return  # se sale
-            else:
-                print("ingrese un valor valido")
+    def _run_git(self, *args):
+        try:
+            return subprocess.run(
+                ["git", "-C", self.path_basic, *args],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except FileNotFoundError:
+            print("Error: Git no está instalado o no se encuentra en PATH.")
+            return None
+        except OSError as error:
+            print(f"Error al ejecutar Git: {error}")
+            return None
 
-    def MakeGit(self):  # se crea un repo en el path del py
-        subprocess.run(["git", "-C", self.PathBasic, "init"], capture_output=True)
-        print("Se creo un repositorio correctamente")
+    def _ensure_repository(self):
+        result = self._run_git("rev-parse", "--is-inside-work-tree")
+        if result is None:
+            return False
+        if result.returncode == 0:
+            return True
 
-    def commit(self):  # se agregan todos los archivos:
-        subprocess.run(["git", "add", "-A"], capture_output=True)
-        subprocess.run(  # se agrega comentario y dice que se hizo automaticamente
-            ["git", "commit", "-m", self.today, "-m", "this commit is automatic"],
-            capture_output=True,
+        try:
+            answer = input(
+                "No hay un repositorio Git. ¿Desea crear uno?\n1. Sí\n2. No\nElige: "
+            )
+        except EOFError:
+            print("No se recibió una respuesta; operación cancelada.")
+            return False
+        if answer == "1":
+            result = self._run_git("init")
+            if result is None or result.returncode != 0:
+                self._print_git_error(result)
+                return False
+            print("Se creó un repositorio correctamente.")
+            return True
+        if answer != "2":
+            print("Ingrese un valor válido.")
+        return False
+
+    @staticmethod
+    def _print_git_error(result):
+        if result is None:
+            return
+        message = result.stderr.strip() or result.stdout.strip()
+        if message:
+            print(f"Error de Git: {message}")
+        else:
+            print(f"Error de Git: el comando terminó con código {result.returncode}.")
+
+    def commit(self):
+        result = self._run_git("status", "--short", "--untracked-files=all")
+        if result is None:
+            return
+        if result.returncode != 0:
+            self._print_git_error(result)
+            return
+        if not result.stdout.strip():
+            print("No hay cambios para confirmar.")
+            return
+
+        print("\nCambios que se incluirán:")
+        print(result.stdout.rstrip())
+        try:
+            answer = input(
+                "¿Desea agregar todos estos cambios y crear el commit? (s/N): "
+            )
+        except EOFError:
+            print("No se recibió una respuesta; operación cancelada.")
+            return
+        if answer.strip().lower() not in ("s", "si", "sí"):
+            print("Operación cancelada; no se agregaron cambios.")
+            return
+
+        result = self._run_git("add", "-A")
+        if result is None or result.returncode != 0:
+            self._print_git_error(result)
+            return
+
+        result = self._run_git("diff", "--cached", "--quiet")
+        if result is None:
+            return
+        if result.returncode == 0:
+            print("No hay cambios preparados para confirmar.")
+            return
+        if result.returncode != 1:
+            self._print_git_error(result)
+            return
+
+        result = self._run_git(
+            "commit",
+            "-m",
+            self.today,
+            "-m",
+            "this commit is automatic",
         )
-        print("Se hizo el commit correctamente")  # mensaje de exito
+        if result is None:
+            return
+        if result.returncode != 0:
+            self._print_git_error(result)
+            return
+        print("Se hizo el commit correctamente.")
+
+    def Exist(self):
+        if self._ensure_repository():
+            self.commit()
 
 
-def main():  # El menu principal
-    auto = AutomaticGit()  # asigna variable a AutomaticGit
+def main():
+    auto = AutomaticGit()
 
-    while True:  # menu
+    while True:
         print("\n" + "=" * 60)
         print("1. Iniciar")
         print("2. Salir")
-        elige = input("Elige: ")
+        try:
+            elige = input("Elige: ")
+        except EOFError:
+            print("\nSaliendo...")
+            break
 
         if elige == "2":
             print("Saliendo...")
             break
-        elif elige == "1":
+        if elige == "1":
             auto.Exist()
         else:
-            print("Ingrese un valor válido")
+            print("Ingrese un valor válido.")
 
 
-if __name__ == "__main__":  # inicia el programa
+if __name__ == "__main__":
     main()
